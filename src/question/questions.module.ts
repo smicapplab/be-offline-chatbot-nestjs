@@ -1,11 +1,9 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { JwtModule, JwtService } from '@nestjs/jwt';
-import { QuestionsService } from './questions.service';
-import { QuestionsController } from './questions.controller';
+import { ConfigModule } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import { PrismaModule } from 'prisma/prisma.module';
-import { APP_GUARD } from '@nestjs/core';
-import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { QuestionsController } from './questions.controller';
+import { QuestionsService } from './questions.service';
 
 
 @Module({

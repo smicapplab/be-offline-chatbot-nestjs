@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
-import { UploadHistoryService } from './upload-history.service';
+import { ConfigModule } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import { UploadHistoryController } from './upload-history.controller';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { JwtModule, JwtService } from '@nestjs/jwt';
+import { UploadHistoryService } from './upload-history.service';
 
 @Module({
   imports: [

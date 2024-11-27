@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { FindAllUploadHistoryDto } from './dto/find-all-upload-history.dto';
 import { PrismaService } from 'prisma/prisma.service';
+import { FindAllUploadHistoryDto } from './dto/find-all-upload-history.dto';
 
 @Injectable()
 export class UploadHistoryService {

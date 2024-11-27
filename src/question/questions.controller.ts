@@ -1,11 +1,11 @@
-import { Controller, Get, Post, Body, Patch, UseGuards, Request, Query } from '@nestjs/common';
-import { QuestionsService } from './questions.service';
-import { CreateQuestionDto } from './dto/create-question.dto';
-import { SearchQuestionDto } from './dto/search-question.dto';
-import { FindAllQuestionsDto } from './dto/find-all-questions.dto';
-import { EditQuestionDto } from './dto/edit-question.dto';
+import { Body, Controller, Get, Patch, Post, Query, Request, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RequestWithUser } from 'src/auth/request-with-user.interface';
+import { CreateQuestionDto } from './dto/create-question.dto';
+import { EditQuestionDto } from './dto/edit-question.dto';
+import { FindAllQuestionsDto } from './dto/find-all-questions.dto';
+import { SearchQuestionDto } from './dto/search-question.dto';
+import { QuestionsService } from './questions.service';
 
 @Controller('questions')
 export class QuestionsController {
