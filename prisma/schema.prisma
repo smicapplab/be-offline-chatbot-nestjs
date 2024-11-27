@@ -72,3 +72,15 @@ model ChatHistory {
 
   @@map("chat_history")
 }
+
+model ApiKey {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  description String
+  createdAt   DateTime @default(now()) @map("created_at")
+  createdBy   Int      @map("created_by")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  updatedBy   Int      @map("updated_by")
+
+  @@map("api_keys")
+}
