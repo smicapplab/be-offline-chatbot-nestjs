@@ -1,0 +1,74 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model UploadHistory {
+  id         Int        @id @default(autoincrement())
+  fileName   String     @map("file_name")
+  uploadedAt DateTime   @default(now()) @map("uploaded_at")
+  uploadedBy Int        @map("uploaded_by")
+  user       User?      @relation(fields: [uploadedBy], references: [id], name: "UserUploads")
+  questions  Question[] @relation("QuestionUpload")
+  status     String     @default("Pending")
+
+  @@map("upload_history")
+}
+
+model Question {
+  id        Int            @id @default(autoincrement())
+  question  String
+  answer    String
+  lang      String
+  embedding Json
+  createdAt DateTime       @default(now()) @map("created_at")
+  createdBy Int            @map("created_by")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+  updatedBy Int            @map("updated_by")
+  uploadId  Int            @map("upload_id")
+  upload    UploadHistory? @relation("QuestionUpload", fields: [uploadId], references: [id])
+
+  @@map("question")
+}
+
+model User {
+  id              Int             @id @default(autoincrement())
+  fistName        String          @map("first_name")
+  lastName        String          @map("last_name")
+  password        String
+  email           String          @unique
+  uploadHistories UploadHistory[] @relation("UserUploads")
+  isActive        Boolean         @default(true) @map("is_active")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  createdBy       Int             @map("created_by")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+  updatedBy       Int             @map("updated_by")
+  roleId          Int             @map("role_id")
+  role            Role?           @relation(fields: [roleId], references: [id], name: "UserRole")
+
+  @@map("user")
+}
+
+model Role {
+  id          Int     @id @default(autoincrement())
+  name        String
+  description String?
+  users       User[]  @relation("UserRole")
+
+  @@map("role")
+}
+
+model ChatHistory {
+  id         Int      @id @default(autoincrement())
+  clientType String?  @map("client_type")
+  userId     String?  @map("user_id")
+  history    Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("chat_history")
+}
