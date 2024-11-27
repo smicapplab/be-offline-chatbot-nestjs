@@ -7,7 +7,6 @@ import { UploadHistoryService } from './upload-history.service';
 @Module({
   imports: [
     ConfigModule,
-
   ],
   providers: [UploadHistoryService, JwtService],
   controllers: [UploadHistoryController],

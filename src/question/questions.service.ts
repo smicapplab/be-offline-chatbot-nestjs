@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { parse } from 'csv-parse';
 import * as pako from 'pako';
 import { PrismaService } from 'prisma/prisma.service';
+import { ChatHistoryService } from 'src/chat-history/chat-history.service';
 import { CreateQuestionDto } from './dto/create-question.dto';
 import { EditQuestionDto } from './dto/edit-question.dto';
 import { FindAllQuestionsDto } from './dto/find-all-questions.dto';
@@ -23,6 +24,7 @@ export class QuestionsService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly chatHistoryService: ChatHistoryService
   ) {
     this.initializeModel();
   }
@@ -97,9 +99,9 @@ export class QuestionsService {
           finalScore: 0,
         };
 
-    // if (userId) { //maybe use event driven for this
-    //   this.chatHistoryService.updateHistory(searchQuestionDto, nearestAnswer);
-    // }
+    if (userId) { //maybe use event driven for this
+      this.chatHistoryService.updateHistory(searchQuestionDto, nearestAnswer);
+    }
 
     return nearestAnswer;
   }
