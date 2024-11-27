@@ -6,6 +6,7 @@ import { PrismaModule } from 'prisma/prisma.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
+import { ChatHistoryService } from './chat-history/chat-history.service';
 import { QuestionsController } from './question/questions.controller';
 import { QuestionsModule } from './question/questions.module';
 import { QuestionsService } from './question/questions.service';
@@ -21,18 +22,21 @@ import { UploadHistoryService } from './upload-history/upload-history.service';
     ConfigModule.forRoot({
       isGlobal: true,
     })],
-  controllers: [
-    AppController,
-    QuestionsController,
-    UploadHistoryController],
   providers: [
     AppService,
     QuestionsService,
     UploadHistoryService,
+    ChatHistoryService,
     JwtService,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard, // Make JwtAuthGuard global
-    },],
+    }
+  ],
+  controllers: [
+    AppController,
+    QuestionsController,
+    UploadHistoryController],
+
 })
 export class AppModule { }

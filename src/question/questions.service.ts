@@ -10,16 +10,16 @@ import { SearchQuestionDto } from './dto/search-question.dto';
 
 interface QuestionResult {
   id: number;
-  questionText: string;
-  answerText: string;
-  similarity: number;
-  textSimilarity: number;
-  finalScore?: number;
+  question: string;
+  answer: string;
+  combinedSimilarity: string; // Raw SQL returns these values as strings
+  textSimilarity: string;     // Change this to string
+  keywordMatchScore: string;  // Change this to string
 }
 
 @Injectable()
 export class QuestionsService {
-  
+
   private model;
 
   constructor(
@@ -51,55 +51,110 @@ export class QuestionsService {
     return Array.from(result.data);
   }
 
+  // Helper function to calculate cosine distance between two embeddings
+  private calculateCosineDistance(embeddingA: number[], embeddingB: number[]): number {
+    const dotProduct = embeddingA.reduce((sum, a, idx) => sum + a * embeddingB[idx], 0);
+    const magnitudeA = Math.sqrt(embeddingA.reduce((sum, a) => sum + a * a, 0));
+    const magnitudeB = Math.sqrt(embeddingB.reduce((sum, b) => sum + b * b, 0));
+    return 1 - dotProduct / (magnitudeA * magnitudeB);
+  }
+
+
   async search(searchQuestionDto: SearchQuestionDto) {
     const { messages, newMessage, userId, lang } = searchQuestionDto;
 
+    // Generate context from previous messages if available
     const context = messages?.length
       ? messages.map((msg) => msg.content).join(' [SEP] ')
       : '';
 
+    // Generate embeddings for context and new message
     const contextEmbedding = context ? await this.generateEmbedding(context, '') : [];
     const newMessageEmbedding = await this.generateEmbedding(newMessage, '');
 
+    // Calculate similarity between context and new message
+    const contextSimilarity = contextEmbedding.length > 0
+      ? 1 - this.calculateCosineDistance(contextEmbedding, newMessageEmbedding)
+      : 0;
+
+    // Context inclusion threshold
+    const CONTEXT_THRESHOLD = 0.5;
+    const useContext = contextSimilarity >= CONTEXT_THRESHOLD;
+
+    // Extract meaningful keywords from the new message
     const keywords = newMessage.match(/\b\w{4,}\b/g) || [];
 
-    const questions = await this.prisma.$queryRawUnsafe<QuestionResult[]>(`
-      SELECT id, question_text AS questionText, answer_text AS answerText,
-             1 - (embedding <=> ARRAY[${newMessageEmbedding.join(', ')}]) AS similarity,
-             GREATEST(similarity(lower(question_text), lower($1)), similarity(lower(answer_text), lower($1))) AS textSimilarity
+    // Build embeddings as PostgreSQL-compatible arrays
+    const contextEmbeddingString = useContext && contextEmbedding.length > 0
+      ? `ARRAY[${contextEmbedding.join(', ')}]::vector(768)`
+      : null;
+    const newMessageEmbeddingString = `ARRAY[${newMessageEmbedding.join(', ')}]::vector(768)`;
+
+    // Construct query conditionally based on context usage
+    const query = `
+      SELECT id, question_text AS "questionText", answer_text AS "answerText",
+             ${useContext
+        ? `0.7 * (1 - (embedding <=> ${newMessageEmbeddingString})) +
+                  0.3 * (1 - (embedding <=> ${contextEmbeddingString}))`
+        : `1 - (embedding <=> ${newMessageEmbeddingString})`}
+             AS "combinedSimilarity",
+             GREATEST(similarity(lower(question_text), lower($1)), similarity(lower(answer_text), lower($1))) AS "textSimilarity",
+             CAST(
+               CASE
+                 WHEN lower(question_text) ~* $2 THEN 0.2
+                 ELSE 0
+               END AS NUMERIC
+             ) AS "keywordMatchScore"
       FROM questions
       ${lang ? `WHERE lang = '${lang}'` : ''}
-      ORDER BY similarity DESC, textSimilarity DESC
+      ORDER BY "combinedSimilarity" DESC, "textSimilarity" DESC
       LIMIT 20;
-    `, newMessage);
+    `;
 
-    // Post-process results
-    const results = questions.map((result: any) => {
+    const params = [newMessage, keywords.join('|')];
+
+    // Execute the raw query
+    const questions = await this.prisma.$queryRawUnsafe<QuestionResult[]>(query, ...params);
+
+    // Adjust final scores
+    const results = questions.map((result) => {
       const containsAllKeywords = keywords.every((kw) =>
-        result.question.toLowerCase().includes(kw.toLowerCase()),
+        result.question.toLowerCase().includes(kw.toLowerCase())
       );
       const keywordBoost = containsAllKeywords ? 0.5 : 0.0;
 
       return {
         ...result,
-        finalScore: result.similarity * 0.7 + result.textSimilarity * 0.3 + keywordBoost,
+        combinedSimilarity: parseFloat(result.combinedSimilarity),
+        textSimilarity: parseFloat(result.textSimilarity),
+        keywordMatchScore: parseFloat(result.keywordMatchScore),
+        finalScore:
+          parseFloat(result.combinedSimilarity) +
+          parseFloat(result.textSimilarity) * 0.5 +
+          parseFloat(result.keywordMatchScore) +
+          keywordBoost,
       };
     });
 
+    // Sort by final score
     results.sort((a, b) => b.finalScore - a.finalScore);
 
-    const nearestAnswer = results.length && results[0].finalScore >= 0.4
-      ? results[0]
-      : {
+    // Determine the nearest answer
+    const nearestAnswer =
+      results.length && results[0].finalScore >= 0.4
+        ? results[0]
+        : {
           id: null,
-          question: newMessage,
+          questionText: newMessage,
           answerText: 'No relevant information found.',
-          similarity: 0,
+          combinedSimilarity: 0,
           textSimilarity: 0,
+          keywordMatchScore: 0,
           finalScore: 0,
         };
 
-    if (userId) { //maybe use event driven for this
+    // Optionally update the chat history
+    if (userId) {
       this.chatHistoryService.updateHistory(searchQuestionDto, nearestAnswer);
     }
 
