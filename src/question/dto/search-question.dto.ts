@@ -1,5 +1,5 @@
-import { IsString, IsNotEmpty, IsArray, IsOptional, ValidateNested, IsObject } from 'class-validator';
 import { Type } from 'class-transformer';
+import { IsArray, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
 
 class Message {
     @IsString()

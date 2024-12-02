@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { parse } from 'csv-parse';
 import * as pako from 'pako';
 import { PrismaService } from 'prisma/prisma.service';
+import { RequestWithUser } from 'src/auth/request-with-user.interface';
 import { ChatHistoryService } from 'src/chat-history/chat-history.service';
 import { CreateQuestionDto } from './dto/create-question.dto';
 import { EditQuestionDto } from './dto/edit-question.dto';
@@ -9,7 +11,7 @@ import { FindAllQuestionsDto } from './dto/find-all-questions.dto';
 import { SearchQuestionDto } from './dto/search-question.dto';
 
 interface QuestionResult {
-  id: number;
+  id: string;
   question: string;
   answer: string;
   combinedSimilarity: string; // Raw SQL returns these values as strings
@@ -20,7 +22,7 @@ interface QuestionResult {
 @Injectable()
 export class QuestionsService {
 
-  private model;
+  private model: (arg0: string, arg1: { pooling: string; normalize: boolean; }) => any;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -30,7 +32,6 @@ export class QuestionsService {
   }
 
   private async initializeModel() {
-    //@ts-ignore
     const TransformersApi = Function('return import("@xenova/transformers")')();
     const { pipeline, env } = await TransformersApi;
     const embeddingModelName = 'Xenova/all-mpnet-base-v2';
@@ -92,7 +93,7 @@ export class QuestionsService {
 
     // Construct query conditionally based on context usage
     const query = `
-      SELECT id, question_text AS "questionText", answer_text AS "answerText",
+      SELECT id, question_text AS "question", answer_text AS "answerText",
              ${useContext
         ? `0.7 * (1 - (embedding <=> ${newMessageEmbeddingString})) +
                   0.3 * (1 - (embedding <=> ${contextEmbeddingString}))`
@@ -145,8 +146,8 @@ export class QuestionsService {
         ? results[0]
         : {
           id: null,
-          questionText: newMessage,
-          answerText: 'No relevant information found.',
+          question: newMessage,
+          answer: 'No relevant information found.',
           combinedSimilarity: 0,
           textSimilarity: 0,
           keywordMatchScore: 0,
@@ -161,11 +162,12 @@ export class QuestionsService {
     return nearestAnswer;
   }
 
-  async upload(createQuestionDto: CreateQuestionDto, user: any) {
+  async upload(createQuestionDto: CreateQuestionDto, user: RequestWithUser['user'] ) {
     const { data, fileName } = createQuestionDto;
     const compressedBinary = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
     const binaryData = pako.inflate(compressedBinary);
 
+    
     const uploadHistory = await this.prisma.uploadHistory.create({
       data: {
         fileName,
@@ -225,11 +227,11 @@ export class QuestionsService {
   async findAll(dto: FindAllQuestionsDto) {
     const { limit = 10, offset = 0, search, uploadId } = dto;
 
-    const where: any = {};
+    const where: Prisma.QuestionWhereInput = {};
     if (search) {
       where.OR = [
-        { questionText: { contains: search, mode: 'insensitive' } },
-        { answerText: { contains: search, mode: 'insensitive' } },
+        { question: { contains: search, mode: 'insensitive' } },
+        { answer: { contains: search, mode: 'insensitive' } },
       ];
     }
     if (uploadId) where.uploadId = uploadId;
@@ -252,7 +254,7 @@ export class QuestionsService {
     };
   }
 
-  async editQuestion(dto: EditQuestionDto, user: any) {
+  async editQuestion(dto: EditQuestionDto, user: RequestWithUser['user']) {
     const { id, question, answer } = dto;
     const embedding = await this.generateEmbedding(question, answer);
     const lang = await this.detectLanguage(question);
@@ -264,7 +266,7 @@ export class QuestionsService {
         answer: answer,
         lang: lang === 'tgl' ? 'tgl' : 'eng',
         embedding,
-        updatedBy: user.id,
+        updatedBy: user.sub,
       },
     });
 

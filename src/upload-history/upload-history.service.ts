@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import { FindAllUploadHistoryDto } from './dto/find-all-upload-history.dto';
 
@@ -10,7 +11,8 @@ export class UploadHistoryService {
     const { limit = 10, offset = 0, lastRecordId, search } = dto;
 
     // Base query
-    const where: any = {};
+    const where: Prisma.UploadHistoryWhereInput = {};
+
     if (search) {
       where.fileName = { contains: search, mode: 'insensitive' };
     }

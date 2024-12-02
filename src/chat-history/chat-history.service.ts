@@ -1,7 +1,19 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import { SearchQuestionDto } from 'src/question/dto/search-question.dto';
 import { FindAllChatHistoryDto } from './dto/find-all-chat-history.dto';
+
+// @steve: for POC, ignore types/interfaces here, will put them in folder later
+type ChatResponse = {
+    id?: string,
+    question: string,
+    answer: string,
+    combinedSimilarity: number,
+    textSimilarity: number,
+    keywordMatchScore: number,
+    finalScore: number,
+}
 
 @Injectable()
 export class ChatHistoryService {
@@ -20,7 +32,8 @@ export class ChatHistoryService {
         return clientTypes.map((item) => item.clientType);
     }
 
-    async updateHistory(searchQuestionDto: SearchQuestionDto, result: any): Promise<void> {
+
+    async updateHistory(searchQuestionDto: SearchQuestionDto, result: ChatResponse): Promise<void> {
         const { newMessage, userId = '', clientType = '' } = searchQuestionDto;
         const now = new Date();
 
@@ -38,7 +51,7 @@ export class ChatHistoryService {
                 };
 
                 const updatedHistory = [
-                    ...((existingChatHistory.history as any[]) ?? []), 
+                    ...((existingChatHistory.history as any[]) ?? []),
                     history,
                 ];
 
@@ -82,7 +95,7 @@ export class ChatHistoryService {
             clientType,
         } = dto;
 
-        const where: any = {};
+        const where: Prisma.ChatHistoryWhereInput = {};
         if (userId) where.userId = userId;
         if (clientType) where.clientType = clientType;
         if (fromDate) where.createdAt = { gte: new Date(fromDate) };
